@@ -148,4 +148,9 @@ typedef NSString *(^CacheKeyFilter)(NSURL *url);
  */
 - (void)cancelForDelegate:(id<SDWebImageManagerDelegate>)delegate;
 
+
+- (void)addBasicAuthUsername:(NSString *)theUsername andPassword:(NSString *)thePassword forUrlPattern:(NSString *)urlPattern;
+
+@property (nonatomic) NSMutableDictionary *authUrlPatterns;
+
 @end

@@ -8,6 +8,7 @@
 
 #import "SDWebImageDownloader.h"
 #import "SDWebImageDecoder.h"
+#import "SDWebImageManager.h"
 #import <ImageIO/ImageIO.h>
 
 @interface SDWebImageDownloader (ImageDecoder) <SDWebImageDecoderDelegate>
@@ -73,10 +74,51 @@ NSString *const SDWebImageDownloadStopNotification = @"SDWebImageDownloadStopNot
     // NOOP
 }
 
+- (NSURLRequest *)addAuthHeaderFields:(NSURLRequest *)aRequest username:(NSString *)username password:(NSString *)password
+{
+    CFHTTPMessageRef dummyRequest = CFHTTPMessageCreateRequest(kCFAllocatorDefault,
+                                                               CFSTR("GET"),
+                                                               (__bridge CFURLRef)[aRequest URL],
+                                                               kCFHTTPVersion1_1);
+    
+    CFHTTPMessageAddAuthentication(dummyRequest,
+                                   nil,
+                                   (__bridge CFStringRef)username,
+                                   (__bridge CFStringRef)password,
+                                   kCFHTTPAuthenticationSchemeBasic,
+                                   FALSE);
+    
+    NSString *authorizationString = (__bridge NSString *)CFHTTPMessageCopyHeaderFieldValue(dummyRequest,
+                                                                                           CFSTR("Authorization"));
+    
+    CFBridgingRelease(dummyRequest);
+    
+    NSMutableURLRequest *mutableCopy = [aRequest mutableCopy];
+    [mutableCopy setValue:authorizationString forHTTPHeaderField:@"Authorization"];
+    
+    CFRelease((__bridge CFStringRef)authorizationString);
+    
+    return mutableCopy;
+}
+
 - (void)start
 {
+    NSURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:15];
+    
+    // Check if we need to use basic auth
+    SDWebImageManager *manager = [SDWebImageManager sharedManager];
+    if (manager.authUrlPatterns.count) {
+        NSString *compareUrl = [url absoluteString];
+        for (NSString *urlPattern in manager.authUrlPatterns) {
+            if ([compareUrl rangeOfString:urlPattern].location != NSNotFound) {
+                NSDictionary *authDict = [manager.authUrlPatterns objectForKey:urlPattern];
+                request = [self addAuthHeaderFields:request username:[authDict objectForKey:@"username"] password:[authDict objectForKey:@"password"]];
+            }
+        }
+    }
+    
     // In order to prevent from potential duplicate caching (NSURLCache + SDImageCache) we disable the cache for image requests
-    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:15];
+    
     self.connection = SDWIReturnAutoreleased([[NSURLConnection alloc] initWithRequest:request delegate:self startImmediately:NO]);
 
     // If not in low priority mode, ensure we aren't blocked by UI manipulations (default runloop mode for NSURLConnection is NSEventTrackingRunLoopMode)

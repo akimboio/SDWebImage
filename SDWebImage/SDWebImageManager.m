@@ -20,6 +20,8 @@ static SDWebImageManager *instance;
 
 @implementation SDWebImageManager
 
+@synthesize authUrlPatterns;
+
 #if NS_BLOCKS_AVAILABLE
 @synthesize cacheKeyFilter;
 #endif
@@ -35,6 +37,8 @@ static SDWebImageManager *instance;
         cacheURLs = [[NSMutableArray alloc] init];
         downloaderForURL = [[NSMutableDictionary alloc] init];
         failedURLs = [[NSMutableArray alloc] init];
+        
+        authUrlPatterns = [[NSMutableDictionary alloc] init];
     }
     return self;
 }
@@ -487,6 +491,14 @@ static SDWebImageManager *instance;
     // Release the downloader
     [downloaderForURL removeObjectForKey:downloader.url];
     SDWIRelease(downloader);
+}
+
+- (void)addBasicAuthUsername:(NSString *)theUsername andPassword:(NSString *)thePassword forUrlPattern:(NSString *)urlPattern
+{
+    [authUrlPatterns setValue:@{
+        @"username":theUsername,
+        @"password":thePassword
+     } forKey:urlPattern];
 }
 
 @end
